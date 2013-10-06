@@ -15,6 +15,13 @@ VALUE_DELIMITER = ","
 
 # Constants representing feature types
 NOMINAL_FEATURE, NUMERIC_FEATURE = "nominal" , "numeric"
+CLASS_FEATURE = "class"
 
 # Constants representing data type of a numeric feature
 REAL_DATA_TYPE, NUMERIC_DATA_TYPE = "real" , "numeric"
+
+# Decision tree node types
+FEATURE_NODE , CLASS_NODE = "feature", "class"
+
+#Operators
+EQUALS, LESS_THAN_OR_EQUAL_TO, GREATER_THAN = "=", "<=", ">"

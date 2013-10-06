@@ -9,9 +9,8 @@ from models import dataset
 from models import constants
 
 """
-    Implementation of the decision tree learning algorithm involving
-    both nominal and numeric features. The dataset is assumed to be
-    present in the ARFF format.
+    Implementation of the decision tree learning algorithm involving both nominal and numeric 
+    features. The dataset is assumed to be present in the ARFF format.
 """
 
 """ 
@@ -34,22 +33,18 @@ def get_dataset_from_file(file_path):
         # Read data line here
         if is_data_read_started:
             example = get_example_from_line(line, features)
-            print str(example)
             examples.append(example)
         # Read metadata line here
         else:
             if line.startswith(constants.DATASET_NAME_MARKER):
                 dataset_name = get_line_without_marker(line, constants.DATASET_NAME_MARKER)
-                print str(dataset_name)
             elif constants.CLASS_LABEL_MARKER in line:
                 class_line = get_line_without_marker(line, constants.CLASS_LABEL_MARKER)
                 split_line = class_line.split("'")
                 output_labels = split_line[2].replace("{", "").replace("}", "").strip().split(constants.VALUE_DELIMITER)
                 output_labels = [label.strip() for label in output_labels]
-                print str(output_labels)                
             elif line.startswith(constants.FEATURE_NAME_MARKER):
                 feature = get_feature_from_line(line)
-                print str(feature)
                 features.append(feature)
             elif line.startswith(constants.DATA_MARKER):
                 is_data_read_started = True
@@ -58,15 +53,13 @@ def get_dataset_from_file(file_path):
         
     file.close()
     
-    #return Dataset(dataset_name, features, output_labels, examples)
+    return dataset.Dataset(dataset_name, features, output_labels, examples)
         
-#Utility methods
-
 # Remove leading marker from a line in data file and trim any extra spaces
 def get_line_without_marker(line, marker):
     return line.replace(marker, "").strip()
 
-# Returns an example object corresponding to the current instance in the data file
+# Extracts example from an example line in ARFF data file
 def get_example_from_line(line, features):
     line_wo_marker = get_line_without_marker(line, constants.FEATURE_NAME_MARKER)
     split_line = line_wo_marker.split(constants.VALUE_DELIMITER)
@@ -78,6 +71,7 @@ def get_example_from_line(line, features):
     
     return dataset.Example(feature_value_dict, class_label)
 
+# Extracts feature from a feature line in ARFF data file
 def get_feature_from_line(line):
     line_wo_marker = get_line_without_marker(line, constants.FEATURE_NAME_MARKER)
     split_line = line_wo_marker.split("'")
@@ -96,17 +90,24 @@ def get_feature_from_line(line):
 
 # Program driver
 def main(argv):
-    assert len(argv) == 3, " Please provide correct arguments : python dt-learn.py $1 $2 $3"
-    train_file_path, test_file_path, leaf_threshold = argv[0], argv[1], argv[2]
+    assert len(argv) == 3, " Please provide correct arguments as follows : python dt-learn.py <train file path> <test file path> <leaf threshold>"
+    train_dataset_file_path, test_dataset_file_path, leaf_threshold = argv[0], argv[1], argv[2]
     
     # 1) load the training data set
-    get_dataset_from_file(train_file_path)
+    train_dataset = get_dataset_from_file(train_dataset_file_path)
+    print "Loaded training dataset .."
     
     # 2) generate a decision tree using training data set
+    training_dataset_dtree = dtree.learn_dtree(train_dataset, leaf_threshold)
+    print "Generated decision tree based on training dataset .."
     
     # 3) load the test data set
+    test_dataset = get_dataset_from_file(test_dataset_file_path)
+    print "Loaded test dataset .."
     
     # 4) evaluate the decision tree using the test data set
+    list_dtree_predictions(training_dataset_dtree, test_dataset)
+    print "Evaluated learnt decision tree on test dataset .."
 
 if __name__ == '__main__':
     main(sys.argv[1:])

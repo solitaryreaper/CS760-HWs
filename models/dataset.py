@@ -27,14 +27,16 @@ class Dataset(object):
     def get_output_labels(self):
         return self.output_labels
     
-    def get_all_examples(self):
+    def get_examples(self):
         return self.examples
     
-    def get_examples_by_values(self, feature_name, feature_value):
-        pass
+    # Number of example instances in this dataset
+    def get_examples_count(self):
+        return len(self.examples)
     
-    def get_examples_by_output_labels(self, output_label):
-        pass
+    # Default class label for the dataset is the first mentioned class label
+    def get_default_class(self):
+        return self.output_labels[:1]
 
 """
     Model object to represent metadata and values of a feature
@@ -53,7 +55,9 @@ class Feature(object):
     def is_nominal_feature(self):
         return self.type == constants.NOMINAL_FEATURE
     
-
+    def get_feature_values(self):
+        return self.values
+    
 """
     Model object to represent a dataset example
 """
@@ -64,4 +68,11 @@ class Example(object):
         self.class_label = class_label
 
     def __str__(self):
-        return "Example : Class Label=%s, Values=%s" % (self.class_label, self.feature_val_dict)    
+        return "Example : Class Label=%s, Values=%s" % (self.class_label, self.feature_val_dict)
+    
+    def get_value_for_feature(self, feature_name):
+        feature_value = None
+        if feature_name in self.feature_val_dict:
+            feature_value = self.feature_val_dict[feature_name]
+          
+        return feature_value
