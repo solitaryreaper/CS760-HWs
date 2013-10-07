@@ -5,8 +5,7 @@ Created on Oct 4, 2013
 '''
 
 import sys, getopt
-from models import dataset
-from models import constants
+from models import dataset, dtree, constants
 
 """
     Implementation of the decision tree learning algorithm involving both nominal and numeric 
@@ -91,7 +90,7 @@ def get_feature_from_line(line):
 # Program driver
 def main(argv):
     assert len(argv) == 3, " Please provide correct arguments as follows : python dt-learn.py <train file path> <test file path> <leaf threshold>"
-    train_dataset_file_path, test_dataset_file_path, leaf_threshold = argv[0], argv[1], argv[2]
+    train_dataset_file_path, test_dataset_file_path, leaf_threshold = argv[0], argv[1], int(argv[2])
     
     # 1) load the training data set
     train_dataset = get_dataset_from_file(train_dataset_file_path)
@@ -101,13 +100,18 @@ def main(argv):
     training_dataset_dtree = dtree.learn_dtree(train_dataset, leaf_threshold)
     print "Generated decision tree based on training dataset .."
     
+    dtree.print_dtree(training_dataset_dtree, " ")
+    print "Printed decision tree .. "
+    
     # 3) load the test data set
+    """
     test_dataset = get_dataset_from_file(test_dataset_file_path)
     print "Loaded test dataset .."
     
     # 4) evaluate the decision tree using the test data set
     list_dtree_predictions(training_dataset_dtree, test_dataset)
     print "Evaluated learnt decision tree on test dataset .."
-
+    """
+    
 if __name__ == '__main__':
     main(sys.argv[1:])

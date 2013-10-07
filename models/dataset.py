@@ -35,8 +35,8 @@ class Dataset(object):
         return len(self.examples)
     
     # Default class label for the dataset is the first mentioned class label
-    def get_default_class(self):
-        return self.output_labels[:1]
+    def get_default_class_label(self):
+        return self.output_labels[0]
 
 """
     Model object to represent metadata and values of a feature
@@ -70,9 +70,9 @@ class Example(object):
     def __str__(self):
         return "Example : Class Label=%s, Values=%s" % (self.class_label, self.feature_val_dict)
     
-    def get_value_for_feature(self, feature_name):
+    def get_value_for_feature(self, feature):
         feature_value = None
-        if feature_name in self.feature_val_dict:
-            feature_value = self.feature_val_dict[feature_name]
+        if feature.name in self.feature_val_dict:
+            feature_value = self.feature_val_dict[feature.name]
           
         return feature_value

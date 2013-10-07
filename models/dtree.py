@@ -15,21 +15,29 @@ class DecisionTreeNode(object):
     # Initialize a decision tree node with the reaching examples and attributes
     # By default, assume node is for nominal feature.
     def __init__(self, examples, features):
-        self.examples = examples
-        self.features = features
+        self.examples = examples # actual examples that reached this node
+        self.features = features # actual features that reached this node
         
-        self.best_feature = None
-        self.node_value = None
-        self.node_type = constants.FEATURE_NODE
-        self.is_node_for_nominal_feature = True
-        self.feature_value_nodes = None
-        
-        # For numeric features, the point of split also needs to be recorded
-        self.numeric_split_threshold = None
+        self.best_feature = None # best feature determined for this node
+        self.node_type = constants.FEATURE_NODE # Feature or leaf node ?
+        self.is_node_for_nominal_feature = True # Numeric or nomnial feature ?
+        self.feature_value_nodes = None # Link to the child nodes for each feature value
 
+        # feature value of parent node that led to the creation of this child node
+        # For numeric feature, this should be a logical expression like <= 0.5
+        self.node_value = None
+      
+    # Pretty string representation for debugging a node
+    def __str__(self):
+        if self.node_type != constants.CLASS_NODE:
+            return "Feature Node : " + str(self.best_feature.name) + ", " + str(self.node_value)
+        else:
+            return "Class Node : " + str(self.node_value)
+    
 # Driver for learning decision tree from the training data set
 def learn_dtree(dataset, leaf_threshold):
     default_class_label = dataset.get_default_class_label()
+    print "Generating dtree for default class " + str(default_class_label) + " with m = " + str(leaf_threshold)
     return _build_dtree(dataset.get_examples(), dataset.get_features(), default_class_label, 
                         default_class_label, leaf_threshold)
 
@@ -38,48 +46,93 @@ def print_dtree(root, prefix):
     if root is None:
         return
     
+    print "Node : " + str(root)
+    
     # Print leaf/class node
     if root.node_type == constants.CLASS_NODE:
-        print prefix + " : " + root.best_feature
+        print prefix + " : " + str(root.node_value)
+        
     # Print feature node
     else:
-        root_name = root.best_feature.name
-        feature_value_nodes = root.feature_value_nodes
+        feature = root.best_feature
+        feature_name = feature.name
+        root_child_nodes = root.feature_value_nodes
         
+        # Handle nominal/discrete features here
         if root.is_node_for_nominal_feature:
-            operator = " = "
-            for node in feature_value_nodes:
-                print root_name + " " + operator + " " + node.node_value
+            for node in root_child_nodes:
+                curr_examples = node.examples
+                class_label_map = get_class_labels_map(curr_examples)
+                label_display = ""
+                for key in class_label_map.keys():
+                    label_display += key + " : " + str(class_label_map[key]) + " "
+                label_display = "[" + label_display.strip() + "]"
+                
+                display_str = prefix + "\n\t" + feature_name + " = " + node.value + " " + label_display
+                print display_str
+                
+                print_dtree(node, prefix + "\n\t")
+                
+        # Handle numeric features here
         else:
-            pass
-    
+            node_left = root_child_nodes[0]
+            curr_examples = node_left.examples
+            class_label_map = get_class_labels_map(curr_examples)
+            label_display = ""
+            for key in class_label_map.keys():
+                label_display += key + " : " + str(class_label_map[key]) + " "
+            label_display = "[" + label_display.strip() + "]"
+            
+            display_str = prefix + "\n\t" + feature_name + " <= " + node_left.value + " " + label_display
+            print display_str            
+            print_dtree(node_left, prefix + "\n\t")
+            
+            node_right = root_child_nodes[1]
+            curr_examples = node_right.examples
+            class_label_map = get_class_labels_map(curr_examples)
+            label_display = ""
+            for key in class_label_map.keys():
+                label_display += key + " : " + str(class_label_map[key]) + " "
+            label_display = "[" + label_display.strip() + "]"
+            
+            display_str = prefix + "\n\t" + feature_name + " > " + node_right.value + " " + label_display
+            print display_str            
+            print_dtree(node_right, prefix + "\n\t")            
 
 # Core algorithm that builds the decision tree. This method is recursively called to generate the
 # entire decision tree.
 def _build_dtree(examples, features, parent_majority_class, default_class, leaf_threshold):
-    
+
+    exmp, feat = len(examples), len(features)
+    print "# Examples : " + str(exmp) + ", Features : " + str(feat)
     # Returns a leaf node with majority class label if either examples or attributes are exhausted
     if not examples or not features:
+        print "Created leaf node because empty. Label :  " + str(parent_majority_class)
         return create_leaf_node(examples, features, parent_majority_class)
 
+    print "Examples : "  + str(len(examples)) + " , Features : " + str(len(features))
     class_labels_map = get_class_labels_map(examples)
     
     # Return a leaf node if all instances have the same classification
-    if len(class_labels_map.keys) == 1:
-        pure_class_label = class_labels_map.keys()[:1]
+    if len(class_labels_map.keys()) == 1:
+        pure_class_label = class_labels_map.keys()[0]
+        print "Created leaf node because pure label " + str(parent_majority_class) + " exists "      
         return create_leaf_node(examples, features, pure_class_label)
         
     majority_class = get_majority_class(class_labels_map)
     # Check if number of instances remaining is less than threshold. If yes, create a leaf node
+    print "Len : " + str(len(examples)) + ", Threshold: " + str(leaf_threshold) + ", Class:" + majority_class
     if len(examples) < leaf_threshold:
         if majority_class is None:
+            print "Created leaf node because less than threshold and equal majority " + str(default_class)            
             return create_leaf_node(examples, features, default_class)
         else:
+            print "Created leaf node because less than threshold : " + str(majority_class)            
             return create_leaf_node(examples, features, majority_class)
     
     # Choose the best feature
     best_feature = get_best_feature(examples, features)
-    root = create_feature_node(examples, features)
+    root = create_feature_node(examples, features, best_feature)
     
     # Create links for each feature value
     feature_value_nodes = []
@@ -87,23 +140,33 @@ def _build_dtree(examples, features, parent_majority_class, default_class, leaf_
     # Handle nominal/discrete features first
     if best_feature.is_nominal_feature():
         for feature_value in best_feature.get_feature_values():
+            print "#Found best feature " + str(best_feature.name) + " for features " + pretty_print_features(features) + " with value : " + str(feature_value)
             filtered_examples = get_examples_with_feature_value(examples, feature_value, 
                                                                         best_feature, constants.EQUALS)
-            filtered_features = features.remove(best_feature)
+            filtered_features = [feature for feature in features if feature != best_feature]
             feature_value_node = _build_dtree(filtered_examples, filtered_features, majority_class, 
-                                              default_class)
+                                              default_class, leaf_threshold)
+            feature_value_node.node_value = feature_value
+            print "#Feature node value : " + best_feature.name + " => " + feature_value
             feature_value_nodes.append(feature_value_node)
+    # Handle numeric features here
     else:
         best_split_value = get_best_split_threshold(examples, best_feature)
-        root.numeric_split_threshold = best_split_value
+        root.node_value = best_split_value
+        print "#Found best feature " + str(best_feature.name) + " for features " + pretty_print_features(features) + " with split value : " + str(best_split_value)
         
         less_than_value_examples = get_examples_with_feature_value(examples, best_split_value, best_feature, constants.LESS_THAN_OR_EQUAL_TO)
         greater_than_value_examples = get_examples_with_feature_value(examples, best_split_value, best_feature, constants.GREATER_THAN)
         
         less_than_feature_value_node = _build_dtree(less_than_value_examples, features, majority_class, 
-                                              default_class)
+                                              default_class, leaf_threshold)
+        less_than_feature_value_node.node_value = " <= " + str(best_split_value)
+        print "#Feature node value : " + best_feature.name + " " + less_than_feature_value_node.node_value
+        
         greater_than_feature_value_node = _build_dtree(greater_than_value_examples, features, majority_class, 
-                                              default_class)
+                                              default_class, leaf_threshold)
+        greater_than_feature_value_node.node_value = " > " + str(best_split_value)
+        print "#Feature node value : " + best_feature.name + "  " + greater_than_feature_value_node.node_value        
         
         feature_value_nodes.append(less_than_feature_value_node)      
         feature_value_nodes.append(greater_than_feature_value_node)  
@@ -119,15 +182,23 @@ def create_leaf_node(examples, features, class_label):
     node.node_value = class_label
     node.node_type = constants.CLASS_NODE
     
+    print "Created leaf node with label " + str(class_label) + " for features " + pretty_print_features(features)
+    
     return node
     
 # Creates an intermediate node in the decision tree    
 def create_feature_node(examples, features, best_feature):
     node = DecisionTreeNode(examples, features)
-    node.best_feature = best_feature.name
+    node.best_feature = best_feature
     node.node_type = constants.FEATURE_NODE
+
+    print "Created feature node with feature " + str(best_feature.name) + " for features " + pretty_print_features(features)
     
     return node
+
+def pretty_print_features(features):
+    features_print = [feature.name for feature in features]
+    return str(features_print)
     
 # Core algorithm to determine the best feature    
 def get_best_feature(examples, features):
@@ -138,7 +209,7 @@ def get_best_feature(examples, features):
         if feature.is_nominal_feature():
             info_gain = get_info_gain_for_nominal_feature(examples, feature)
         else:
-            info_gain = get_best_info_gain_for_numeric_feature(examples, features)
+            info_gain = get_best_info_gain_for_numeric_feature(examples, feature)
         
         if info_gain > max_info_gain:
             best_feature = feature
@@ -151,7 +222,7 @@ def get_info_gain_for_nominal_feature(examples, feature):
     
     feature_info = 0.0
     for value in feature.get_feature_values():
-        filtered_examples = get_examples_with_feature_value(value, constants.EQUALS)
+        filtered_examples = get_examples_with_feature_value(examples, value, feature, constants.EQUALS)
         feature_info += get_info(filtered_examples)
 
     return total_info - feature_info
@@ -186,15 +257,17 @@ def get_info(examples):
     class_labels_map = get_class_labels_map(examples)
     
     class_labels = class_labels_map.keys()
-    first_class_examples = class_labels_map[class_labels[0:1]]
-    second_class_examples = class_labels_map[class_labels[1:2]]
+    first_class_examples, second_class_examples = 0, 0
+    first_class_examples = class_labels_map[class_labels[0]]
+    if len(class_labels) > 1:
+        second_class_examples = class_labels_map[class_labels[1]]
     
     # Calculate the total information at this node
     first_class_info, second_class_info = 0.0, 0.0
     if first_class_examples > 0:
-        first_class_info = -(first_class_examples/total_examples)*math.log(first_class_examples/total_examples, 2)
+        first_class_info = -(first_class_examples/float(total_examples))*math.log(first_class_examples/float(total_examples), 2)
     if second_class_examples > 0:
-        second_class_info = -(second_class_examples/total_examples)*math.log(second_class_examples/total_examples, 2)
+        second_class_info = -(second_class_examples/float(total_examples))*math.log(second_class_examples/float(total_examples), 2)
     total_info =  first_class_info + second_class_info
     
     return total_info
@@ -219,7 +292,7 @@ def get_candidate_split_values(examples, feature):
     # build a value bucketed data structure first
     example_value_map = {}
     for example in examples:
-        feature_value = example.get_value_for_feature(feature)
+        feature_value = float(example.get_value_for_feature(feature))
         if feature_value in example_value_map:
             feature_value_examples = example_value_map[feature_value]
         else:
@@ -228,10 +301,9 @@ def get_candidate_split_values(examples, feature):
         feature_value_examples.append(example)
         example_value_map[feature_value] = feature_value_examples
     
+    feature_values_sorted = sorted(example_value_map.keys())
     
-    feature_values_sorted = example_value_map.keys().sort()
-    
-    prev_feature_value = feature_values_sorted[0:1]
+    prev_feature_value = feature_values_sorted[0]
     for value in feature_values_sorted[1:]:
         next_feature_value = value
         prev_value_examples = example_value_map[prev_feature_value]
@@ -288,15 +360,15 @@ def get_class_labels_map(examples):
 
 # Determines the majority class in the examples
 def get_majority_class(class_labels_map):
-    class_labels = class_labels_map.keys()    
-    first_class_label_instances = class_labels_map[class_labels[0:1]]
-    second_class_label_instances = class_labels_map[class_labels[1:2]]
+    class_labels = class_labels_map.keys()
+    first_class_label_instances = class_labels_map[class_labels[0]]
+    second_class_label_instances = class_labels_map[class_labels[1]]
     if first_class_label_instances == second_class_label_instances:
         return None
     elif first_class_label_instances > second_class_label_instances:
-        return class_labels[0:1]
+        return class_labels[0]
     else:
-        return class_labels[1:2]
+        return class_labels[1]
     
 # Filter out all the examples with the specific value for a feature    
 def get_examples_with_feature_value(examples, feature_value, feature, operator):
@@ -306,9 +378,9 @@ def get_examples_with_feature_value(examples, feature_value, feature, operator):
         example_value = example.get_value_for_feature(feature)
         if operator == constants.EQUALS and example_value == feature_value:
             filtered_examples.append(example)
-        elif operator == constants.LESS_THAN_OR_EQUAL_TO and example_value <= feature_value:
+        elif operator == constants.LESS_THAN_OR_EQUAL_TO and float(example_value) <= float(feature_value):
             filtered_examples.append(example)
-        elif operator == constants.GREATER_THAN and example_value > feature_value:
+        elif operator == constants.GREATER_THAN and float(example_value) > float(feature_value):
             filtered_examples.append(example)
         else:
             pass
