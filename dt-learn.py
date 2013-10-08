@@ -94,24 +94,20 @@ def main(argv):
     
     # 1) load the training data set
     train_dataset = get_dataset_from_file(train_dataset_file_path)
-    print "Loaded training dataset .."
+    print "\n\nLoaded training dataset .."
     
     # 2) generate a decision tree using training data set
     training_dataset_dtree = dtree.learn_dtree(train_dataset, leaf_threshold)
-    print "Generated decision tree based on training dataset .."
     
-    dtree.print_dtree(training_dataset_dtree, " ")
-    print "Printed decision tree .. "
+    print "\n\n=================== DECISION TREE =====================================\n\n"
+    dtree.print_dtree(training_dataset_dtree, train_dataset.output_labels, " ")
     
     # 3) load the test data set
-    """
     test_dataset = get_dataset_from_file(test_dataset_file_path)
-    print "Loaded test dataset .."
+    print "\n\nLoaded test dataset .."
     
     # 4) evaluate the decision tree using the test data set
-    list_dtree_predictions(training_dataset_dtree, test_dataset)
-    print "Evaluated learnt decision tree on test dataset .."
-    """
-    
+    dtree.test_dtree(training_dataset_dtree, test_dataset)
+
 if __name__ == '__main__':
     main(sys.argv[1:])
