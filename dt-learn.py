@@ -4,7 +4,7 @@ Created on Oct 4, 2013
 @author: excelsior
 '''
 
-import sys, getopt
+import sys, getopt, re
 from models import dataset, dtree, constants
 
 """
@@ -14,7 +14,7 @@ from models import dataset, dtree, constants
 
 """ 
     Read the dataset file and build the internal memory data structures containing all
-    the instances data
+    the instances data.
 """
 def get_dataset_from_file(file_path):
     file = open(file_path, 'r')
@@ -26,8 +26,11 @@ def get_dataset_from_file(file_path):
     examples = []
       
     for line in file:
-        if not line:
+        if not line.strip() or line.startswith(constants.COMMENT_MARKER):
             continue
+                    
+        # Remove all white-space characters
+        line = re.sub( '\s+', ' ', line).strip()
         
         # Read data line here
         if is_data_read_started:
@@ -35,13 +38,16 @@ def get_dataset_from_file(file_path):
             examples.append(example)
         # Read metadata line here
         else:
+            # read dataset name
             if line.startswith(constants.DATASET_NAME_MARKER):
                 dataset_name = get_line_without_marker(line, constants.DATASET_NAME_MARKER)
+            # read output class labels
             elif constants.CLASS_LABEL_MARKER in line:
                 class_line = get_line_without_marker(line, constants.CLASS_LABEL_MARKER)
-                split_line = class_line.split("'")
-                output_labels = split_line[2].replace("{", "").replace("}", "").strip().split(constants.VALUE_DELIMITER)
+                split_line = class_line.split("{")
+                output_labels = split_line[1].replace("{", "").replace("}", "").strip().split(constants.VALUE_DELIMITER)
                 output_labels = [label.strip() for label in output_labels]
+            # read features
             elif line.startswith(constants.FEATURE_NAME_MARKER):
                 feature = get_feature_from_line(line)
                 features.append(feature)
@@ -60,30 +66,37 @@ def get_line_without_marker(line, marker):
 
 # Extracts example from an example line in ARFF data file
 def get_example_from_line(line, features):
-    line_wo_marker = get_line_without_marker(line, constants.FEATURE_NAME_MARKER)
-    split_line = line_wo_marker.split(constants.VALUE_DELIMITER)
+    split_line = line.split(constants.VALUE_DELIMITER)
     
     feature_value_dict = {}
     for index in range(len(features)):
         feature_value_dict[features[index].name] = split_line[index]
-    class_label = split_line[-1]
+        
+    class_label = split_line[-1] # class label is at the end of the example line
     
     return dataset.Example(feature_value_dict, class_label)
 
 # Extracts feature from a feature line in ARFF data file
 def get_feature_from_line(line):
     line_wo_marker = get_line_without_marker(line, constants.FEATURE_NAME_MARKER)
-    split_line = line_wo_marker.split("'")
-    
+    line_wo_marker = line_wo_marker.replace("'", "")
+    line_wo_marker = re.sub( '\s+', ' ', line_wo_marker).strip()
+    tokens = line_wo_marker.split("{")
+
     name, type, data_type, values = None, None, None, None
-    name = split_line[1].replace("'", "").strip()
-    if "{" in split_line[2]:
-        type = constants.NOMINAL_FEATURE
-        values = split_line[2].replace("{", "").replace("}", "").strip().split(constants.VALUE_DELIMITER)
-        values = [value.strip() for value in values]
-    else:
+        
+    # Numeric feature
+    if len(tokens) == 1:
+        temp_tokens = tokens[0].split(" ")
+        name = temp_tokens[0].strip()
+        data_type = temp_tokens[1].strip()
         type = constants.NUMERIC_FEATURE
-        data_type = split_line[2].strip()
+    # Nominal feature
+    else:
+        name = tokens[0].strip()
+        temp_tokens = tokens[1].replace("{", "").replace("}", "").strip().split(constants.VALUE_DELIMITER)
+        values = [value.strip() for value in temp_tokens]
+        type = constants.NOMINAL_FEATURE
     
     return dataset.Feature(name, type, data_type, values)
 
@@ -94,7 +107,6 @@ def main(argv):
     
     # 1) load the training data set
     train_dataset = get_dataset_from_file(train_dataset_file_path)
-    print "\n\nLoaded training dataset .."
     
     # 2) generate a decision tree using training data set
     training_dataset_dtree = dtree.learn_dtree(train_dataset, leaf_threshold)
@@ -104,9 +116,9 @@ def main(argv):
     
     # 3) load the test data set
     test_dataset = get_dataset_from_file(test_dataset_file_path)
-    print "\n\nLoaded test dataset .."
     
     # 4) evaluate the decision tree using the test data set
+    print "\n\n================== TEST DATA SET EVALUATION ==========================\n\n"
     dtree.test_dtree(training_dataset_dtree, test_dataset)
 
 if __name__ == '__main__':

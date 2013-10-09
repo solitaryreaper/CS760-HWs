@@ -70,6 +70,7 @@ class Example(object):
     def __str__(self):
         return "Example : Class Label=%s, Values=%s" % (self.class_label, self.feature_val_dict)
     
+    # Returns the value of a specific feature from this example
     def get_value_for_feature(self, feature):
         feature_value = None
         if feature.name in self.feature_val_dict:
