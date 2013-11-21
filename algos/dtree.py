@@ -3,7 +3,7 @@ Created on Oct 5, 2013
 
 @author: excelsior
 '''
-import constants
+from models import constants
 import math
 
 """
