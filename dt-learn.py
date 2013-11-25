@@ -7,6 +7,7 @@ Created on Oct 4, 2013
 import sys, getopt, re
 from models import dataset, constants
 from algos import dtree
+from utils import file_reader
 
 """
     Implementation of the decision tree learning algorithm involving both nominal and numeric 
@@ -107,16 +108,16 @@ def main(argv):
     train_dataset_file_path, test_dataset_file_path, leaf_threshold = argv[0], argv[1], int(argv[2])
     
     # 1) load the training data set
-    train_dataset = get_dataset_from_file(train_dataset_file_path)
+    train_dataset = file_reader.get_dataset_from_file(train_dataset_file_path)
     
     # 2) generate a decision tree using training data set
     training_dataset_dtree = dtree.learn_dtree(train_dataset, leaf_threshold)
     
     print "\n\n=================== DECISION TREE =====================================\n\n"
-    dtree.print_dtree(training_dataset_dtree, train_dataset.output_labels, " ")
+    dtree.print_dtree(training_dataset_dtree, train_dataset.output.values, " ")
     
     # 3) load the test data set
-    test_dataset = get_dataset_from_file(test_dataset_file_path)
+    test_dataset = file_reader.get_dataset_from_file(test_dataset_file_path)
     
     # 4) evaluate the decision tree using the test data set
     print "\n\n================== TEST DATA SET EVALUATION ==========================\n\n"

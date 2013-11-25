@@ -19,8 +19,7 @@ class Naivebayes(object):
 
     '''
         Prints the naive bayes net structure
-        The format is <feature name> <parent name>. Since naive bayes has no dependence between attributes
-        the parent attribute is 'class' attribute for all the features.
+        The format is <feature name> <parent name>.
     '''
     def print_inference_network(self):
         for feature in self.train_dataset.get_features():

@@ -70,6 +70,49 @@ class Dataset(object):
                     count_label_and_feature_value_examples = count_label_and_feature_value_examples + 1
                     
         return count_label_and_feature_value_examples
+    
+    # Returns the number of examples with a specific output label and a set of feature values
+    def get_count_examples_with_label_and_feature_values(self, label, feature_val_map):
+        count_label_and_feature_value_examples = 0
+        for example in self.examples:
+            if example.class_label == label:
+                are_all_feat_values_matching = True                
+                if feature_val_map:
+                    for f_name, f_val in feature_val_map.iteritems():
+                        ex_feat_value = example.get_value_for_feature(f_name)
+                        if ex_feat_value != f_val:
+                            are_all_feat_values_matching = False
+                            break
+                        
+                if are_all_feat_values_matching:
+                    count_label_and_feature_value_examples = count_label_and_feature_value_examples + 1
+                    
+        return count_label_and_feature_value_examples
+    
+    # Returns the number of examples with a set of feature values
+    def get_count_examples_with_feature_values(self, feature_val_map):
+        count_feature_values_examples = 0
+        for example in self.examples:
+            are_all_feat_values_matching = True
+            for f_name, f_val in feature_val_map.iteritems():
+                ex_feat_value = example.get_value_for_feature(f_name)
+                if ex_feat_value != f_val:
+                    are_all_feat_values_matching = False
+                    break
+                
+            if are_all_feat_values_matching:
+                count_feature_values_examples = count_feature_values_examples + 1
+                    
+        return count_feature_values_examples    
+    
+    '''
+        Returns the total number of feature values for the dataset.
+    '''
+    def get_total_feature_values(self):
+        num_feature_values = 0
+        for f in self.features:
+            num_feature_values = num_feature_values + len(f.get_feature_values())
+        return num_feature_values
 
 """
     Model object to represent the output label object
@@ -96,6 +139,9 @@ class Feature(object):
         self.data_type = data_type
         self.values = values
 
+    def get_name(self):
+        return self.name
+    
     def __str__(self):
         return "Feature : Name=%s, Type=%s, Data Type=%s, Values=%s" % (self.name, self.type, self.data_type, self.values)
     
