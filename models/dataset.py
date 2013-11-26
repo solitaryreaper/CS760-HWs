@@ -39,6 +39,18 @@ class Dataset(object):
     def get_output_labels(self):
         return self.output.get_output_attribute_values()
     
+    # Gets a map of classification labels and their respective counts
+    def get_class_labels_map(self):
+        class_labels_map = {}
+        for example in self.examples:
+            curr_class_label = example.class_label
+            if curr_class_label in class_labels_map:
+                class_labels_map[curr_class_label] = class_labels_map[curr_class_label] + 1
+            else:
+                class_labels_map[curr_class_label] = 1
+                
+        return class_labels_map
+    
     def get_examples(self):
         return self.examples
     

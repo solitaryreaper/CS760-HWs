@@ -18,7 +18,7 @@ class Naivebayes(object):
         self.train_dataset = dataset
 
     '''
-        Prints the naive bayes net structure
+        Prints the naive bayes net structure.
         The format is <feature name> <parent name>.
     '''
     def print_inference_network(self):
@@ -31,7 +31,13 @@ class Naivebayes(object):
         P(label| FEATURES) = 
             P(label)*P(F1|label)*...P(Fn|label) / 
             P(label)*P(F1|label)*...P(Fn|label) + P(~label)*P(F1|~label)*...P(Fn|~label)
-        Use LaPlace estimates in all probabilities
+            
+        Use LaPlace estimates in all probabilities. The inuition behind LaPlace estimates is that
+        you want to avoid dividing by zero or outputting 0 as the probability for any scenario.
+        So, some virtual examples are added ensuring that the probability is still fair.
+        
+        If P(F|A) has to be calculated, add 1 to numerator for the specific value of F and add
+        count(F values) to the denominator to implement LaPlace estimates.
     '''
     def get_label_probabilistic_score(self, example, label):
         labels = self.train_dataset.get_output_labels()
@@ -72,7 +78,10 @@ class Naivebayes(object):
         return score
 
 '''
-    Test the accuracy of the naive bayes model on a test dataset
+    Test the accuracy of the naive bayes model on a test dataset.
+    
+    For each test example, calculate the conditional probability of each output label given the
+    features values and predict the output label as the one with higher probability.
 '''
 def evaluate_naive_bayes_model(naive_bayes_model, test_dataset):
     labels = test_dataset.output.get_output_attribute_values()
@@ -113,5 +122,8 @@ def evaluate_naive_bayes_model(naive_bayes_model, test_dataset):
 
     # Report the test dataset accuracy    
     print str(success_count)
+    
+    total_test_examples = len(test_dataset.get_examples())
+    return success_count/Decimal(total_test_examples)
         
         

@@ -10,8 +10,21 @@ from decimal import *
 # Round of the decimal output to 16 decimal places
 getcontext().prec = 16
 
+import logging, time
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 '''
-    Build a TAN (Tree Augmented Network) model based on the training data set
+    Build a TAN (Tree Augmented Network) bayesian model based on the training data set.
+    
+    The intution behind TAN is that there are often dependencies between features which are
+    overlooked by Naive Bayes Model. Inferring dependencies between features can lead to
+    better class prediction. 
+    
+    For finding the dependencies, conditional mutual information gain between the vertices serves
+    as the graph edge weights. A maximal spanning tree is calculated using Prim's algorithm to
+    generate the TAN tree with feature dependencies. All the features are also linked to the class
+    label node to indicate the ultimate parent.
 '''
 class TAN(object):
 
@@ -42,20 +55,21 @@ class TAN(object):
     def generate_tan_model(self):
         features = self.train_dataset.get_features()
         
-        print "Generating conditional mutual information gain between features matrix .."
+        logging.debug("Generating conditional mutual information gain between features matrix ..")
         self.inter_feature_weight_matrix = get_mutual_info_gain_bw_features(self.train_dataset)
         
-        print "Generating the maximal spanning tree between the features .."
+        logging.debug("Generating the maximal spanning tree between the features ..")
         self.maximal_spanning_feature_tree = get_maximal_spanning_feature_tree(self.inter_feature_weight_matrix, features)
         
-        print "Generating the TAN graph between features and the class label .."
+        logging.debug("Generating the TAN graph between features and the class label ..")
         self.tan_graph = get_tan_graph(self.maximal_spanning_feature_tree, self.train_dataset)
             
     '''
-        Prints the inference network computed by TAN model
+        Prints the inference network computed by TAN model.
+        
+        The format is <feature name> <parent name1> <parent name2> .. <parent namen>.        
     '''
     def print_inference_network(self):
-        print "Printing the inference network .."
         for feature in self.train_dataset.get_features():
             tan_node = self.tan_graph.get(feature)
             
@@ -68,11 +82,12 @@ class TAN(object):
             print feature.get_name() + " " + parents_str_rep
         
     '''
-        Determine the probability of a specified label given the test example
+        Determine the probability of a specified label given the test example.
         
         Calculate P(label | Feature values in example) using the TAN graph
         
         P(L|F1, F2, ... Fn) = P(F1, F2, ... Fn)/P(F1, F2, .. Fn)
+        The numerator can be rephrased as the product of P(F(i) | Parents) using the TAN graph.
     '''
     def get_label_probabilistic_score(self, example, label, tan_graph):
         total_examples = len(self.train_dataset.get_examples())
@@ -81,18 +96,23 @@ class TAN(object):
                 
         # Calculate numerator = P(F1, F2, ... Fn) using TAN graph
         feature_val_map = example.feature_val_dict
-        prob_num = 1.0
+        prob_numerator = 1.0
         for f, f_value in feature_val_map.iteritems():
             curr_f_prob = get_cpt_score_for_feature(f, example, label, tan_graph, self.train_dataset)
-            prob_num = Decimal(prob_num) * curr_f_prob
+            prob_numerator = Decimal(prob_numerator) * curr_f_prob
         
-        return prob_num*label_cond_prob_score
+        return prob_numerator*label_cond_prob_score
    
 #### Utility functions ###############
 
 '''
     Calculates the CPT (Conditional Probability Table) score for a feature, given its parents
     from the TAN graph.
+    
+    Calculate P(F | P1, P2 .. PN). 
+    
+    Note : Ideally should have created the CPT table that contains the probabilities of various
+    feature values given the various parent feature values.
 '''
 def get_cpt_score_for_feature(feature, example, label, tan_graph, dataset):
     tan_node = tan_graph.get(feature)
@@ -108,17 +128,25 @@ def get_cpt_score_for_feature(feature, example, label, tan_graph, dataset):
         feature_val_map = dict(parent_feature_val_map) 
         
     feature_val_map[feature] = feature_value  
-     
+    
+    # Numerator : P(F ^ P1 ^ P2 ^ .. Pn)
     ex_with_parent_f_values_label = dataset.get_count_examples_with_label_and_feature_values(label, parent_feature_val_map)
+    # Denominator : P(P1 ^ P2 ^ .. Pn)
     ex_with_f_val_parent_f_values_label = dataset.get_count_examples_with_label_and_feature_values(label, feature_val_map)
     
     num_feature_values = len(feature.get_feature_values())
+    
+    # Add laplace estimates
     cpt_score = (ex_with_f_val_parent_f_values_label + 1)/Decimal(ex_with_parent_f_values_label + num_feature_values)
     
     return Decimal(cpt_score)
 
 '''
-    Generates the conditional mutual information gain between features
+    Generates the conditional mutual information gain between features.
+    
+    This conditional mutual information gain between every two feature represents the mutual
+    information between these two features and can serve as edge weight where all vertices are
+    feature nodes.
 '''
 def get_mutual_info_gain_bw_features(dataset):
     inter_feature_weight_matrix = {}
@@ -143,7 +171,7 @@ def get_mutual_info_gain_bw_features(dataset):
         for f1 in features:
             val = weight_vector[f1]
             vector_rep = vector_rep + " " + str(val)
-        print "Weight vector for feature : " + f.get_name() + " is " + vector_rep
+        logging.debug("Weight vector for feature : " + f.get_name() + " is " + vector_rep)
                 
     return inter_feature_weight_matrix
 
@@ -195,7 +223,7 @@ def get_mutual_info_gain_for_values(feature1, f1_val, feature2, f2_val, label, d
     return info_gain
 
 '''
-    Generates the maximal spanning tree for all the features.
+    Generates the maximal spanning tree for all the features using Prim's algorithm.
     
     A maximal spanning tree is a tree that includes all the vertices such that the sum of the edges
     included is maximum.
@@ -206,7 +234,7 @@ def get_maximal_spanning_feature_tree(inter_feature_weight_matrix, features):
     max_spanning_feature_tree = {}
     new_vertices = []
     new_vertices.append(features[0])
-    print "Added " + str(features[0].name) + " as the root vertex .."
+    logging.debug("Added " + str(features[0].name) + " as the root vertex ..")
     while len(new_vertices) != len(features):
         max_wgt_edge_source, max_wgt_edge_target = None, None
         max_weighted_edge = -1.0
@@ -230,7 +258,7 @@ def get_maximal_spanning_feature_tree(inter_feature_weight_matrix, features):
         max_spanning_feature_tree[max_wgt_edge_source] = edges
         new_vertices.append(max_wgt_edge_target)
         
-        print "Added a new edge. Source:" + max_wgt_edge_source.get_name() + ", Target:" + max_wgt_edge_target.get_name() + ", Weight:" + str(max_weighted_edge)
+        logging.debug("Added a new edge. Source:" + max_wgt_edge_source.get_name() + ", Target:" + max_wgt_edge_target.get_name() + ", Weight:" + str(max_weighted_edge))
         
     return max_spanning_feature_tree
 
@@ -278,7 +306,10 @@ class TANNode(object):
         return self.output
 
 '''
-    Test the accuracy of the naive bayes model on a test dataset
+    Test the accuracy of the naive bayes model on a test dataset.
+    
+    For each test example, calculate the conditional probability of each output label given the
+    features values and predict the output label as the one with higher probability.    
 '''
 def evaluate_tan_model(tan_model, test_dataset):
     labels = test_dataset.output.get_output_attribute_values()
@@ -309,3 +340,6 @@ def evaluate_tan_model(tan_model, test_dataset):
 
     # Report the test dataset accuracy    
     print str(success_count)
+    
+    total_test_examples = len(test_dataset.get_examples())
+    return success_count/Decimal(total_test_examples)
